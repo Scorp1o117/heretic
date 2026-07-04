@@ -152,6 +152,11 @@ class Settings(BaseSettings):
         description="Whether to print detailed information about residuals and refusal directions.",
     )
 
+    skip_common_response_prefix: bool = Field(
+        default=False,
+        description="Whether to skip detecting a common response prefix before evaluation.",
+    )
+
     plot_residuals: bool = Field(
         default=False,
         description="Whether to generate plots showing PaCMAP projections of residual vectors.",

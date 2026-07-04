@@ -39,8 +39,16 @@ def get_model_class(
     model: str,
 ) -> Type[AutoModelForImageTextToText] | Type[AutoModelForCausalLM]:
     configs = PretrainedConfig.get_config_dict(model)
+    config_dicts = configs if isinstance(configs, tuple) else (configs,)
+    config = config_dicts[0]
 
-    if any([("vision_config" in config) for config in configs]):
+    # Agents-A1 / Qwen3.5-MoE exposes multimodal config fields, but Heretic only
+    # needs the language model path. Loading it as ImageTextToText brings in the
+    # conditional-generation wrapper and extra vision plumbing.
+    if config.get("model_type") == "qwen3_5_moe":
+        return AutoModelForCausalLM
+
+    if any("vision_config" in item for item in config_dicts if isinstance(item, dict)):
         return AutoModelForImageTextToText
     else:
         return AutoModelForCausalLM
@@ -110,7 +118,12 @@ class Model:
             self.trusted_models[settings.evaluate_model] = settings.trust_remote_code
 
         for dtype in settings.dtypes:
-            print(f"* Trying dtype [bold]{dtype}[/]...")
+            if settings.quantization == QuantizationMethod.BNB_4BIT:
+                print(
+                    f"* Trying [bold]bnb 4-bit[/] with compute dtype [bold]{dtype}[/]..."
+                )
+            else:
+                print(f"* Trying dtype [bold]{dtype}[/]...")
 
             try:
                 quantization_config = self._get_quantization_config(dtype)
@@ -398,6 +411,12 @@ class Model:
         # Most dense models.
         with suppress(Exception):
             try_add("mlp.down_proj", layer.mlp.down_proj)  # ty:ignore[possibly-missing-attribute]
+
+        # Qwen3.5 MoE shared expert. Routed experts are intentionally not added
+        # here because unpacking them produces thousands of Linear modules, which
+        # makes LoRA adaptation impractical on a single GPU.
+        with suppress(Exception):
+            try_add("mlp.down_proj", layer.mlp.shared_expert.down_proj)  # ty:ignore[possibly-missing-attribute]
 
         # Some MoE models (e.g. Qwen3).
         with suppress(Exception):
@@ -954,12 +973,25 @@ class Model:
                 # Each module should be invoked at most once per inference step.
                 assert module_index not in module_io[layer_index][component]
 
-                # inputs[0] and outputs have shape (prompt, position, component),
-                # so this extracts the input/output at the end of each prompt.
+                # Most modules use shape (prompt, position, component). Qwen3.5
+                # MoE shared experts receive flattened states with shape
+                # (prompt * position, component), so handle both layouts.
                 # Move to CPU to decouple from device assignments, which can
                 # change between model reloads in multi-GPU configurations.
-                input = inputs[0][:, -1, :].detach().clone().cpu()
-                output = outputs[:, -1, :].detach().clone().cpu()
+                def last_token_states(states: Tensor) -> Tensor:
+                    if states.ndim == 3:
+                        return states[:, -1, :]
+
+                    if states.ndim == 2 and states.shape[0] % len(prompts) == 0:
+                        sequence_length = states.shape[0] // len(prompts)
+                        return states[sequence_length - 1 :: sequence_length, :]
+
+                    raise ValueError(
+                        f"Unexpected module I/O shape {tuple(states.shape)}"
+                    )
+
+                input = last_token_states(inputs[0]).detach().clone().cpu()
+                output = last_token_states(outputs).detach().clone().cpu()
 
                 # The modules associated with a component (e.g. expert MLPs)
                 # are not necessarily invoked in order, nor are all of them
