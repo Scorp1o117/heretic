@@ -570,6 +570,76 @@ class Settings(BaseSettings):
         description="Dataset of prompts that tend to result in refusals (used for evaluating model performance).",
     )
 
+    # --- Refusal prescreen configuration ---
+
+    refusal_prescreen_enabled: bool = Field(
+        default=True,
+        description="Whether to run a fast refusal prescreen before full evaluation.",
+    )
+
+    refusal_prescreen_size: int = Field(
+        default=30,
+        description="Number of prompts to use for the refusal prescreen.",
+    )
+
+    refusal_prescreen_pass_max: int = Field(
+        default=8,
+        description="Prescreen refusal count at or below which a trial is classified as promising.",
+    )
+
+    refusal_prescreen_prune_min: int = Field(
+        default=19,
+        description="Prescreen refusal count at or above which a trial is pruned immediately (normal phase).",
+    )
+
+    refusal_prescreen_seed: int = Field(
+        default=117,
+        description="Random seed for selecting the fixed prescreen prompt subset.",
+    )
+
+    # --- Warmup pruning configuration ---
+
+    optuna_prune_warmup_enabled: bool = Field(
+        default=True,
+        description="Use a relaxed prune threshold during early Optuna trials.",
+    )
+
+    optuna_prune_warmup_completed_trials: int = Field(
+        default=15,
+        description="Number of completed trials before switching to normal prune threshold.",
+    )
+
+    refusal_prescreen_prune_min_warmup: int = Field(
+        default=24,
+        description="Relaxed prune threshold during warmup phase.",
+    )
+
+    optuna_prune_warmup_max_total_trials: int = Field(
+        default=40,
+        description="Maximum finished trials before forced switch to normal threshold.",
+    )
+
+    # --- Validation KL configuration ---
+
+    validation_kl_enabled: bool = Field(
+        default=True,
+        description="Whether to compute an independent validation KL for promising trials.",
+    )
+
+    # --- Generation health configuration ---
+
+    generation_health_enabled: bool = Field(
+        default=True,
+        description="Whether to run generation health checks on promising trials.",
+    )
+
+    # --- Candidate filtering ---
+
+    full_refusal_candidate_max: int = Field(
+        default=30,
+        description="Maximum full refusal count for a trial to appear in the main candidate menu.",
+    )
+
     @classmethod
     def settings_customise_sources(
         cls,
