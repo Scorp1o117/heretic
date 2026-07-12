@@ -1,3 +1,21 @@
+## SC117 fork
+
+This fork adds:
+
+- Stable FP32 KL evaluation
+- NaN/Inf diagnostics
+- Staged refusal evaluation
+- Validation KL metrics
+- Generation health checks
+- Optuna pruning warmup
+- Qwen3.5 MoE / bitsandbytes 4-bit compatibility
+
+Ornith-specific workflow:
+- Branch: `ornith-classic`
+- Tag: `ornith-trial63-v1`
+
+---
+
 <img width="128" align="right" alt="Logo" src="https://github.com/user-attachments/assets/df5f2840-2f92-4991-aa57-252747d7182e" />
 
 # Heretic: Fully automatic censorship removal for language models<br><br>[![Discord](https://img.shields.io/discord/1447831134212984903?color=5865F2&label=discord&labelColor=black&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/gdXc48gSyT) [![Matrix](https://img.shields.io/badge/Matrix-black?logo=matrix&style=for-the-badge)](https://matrix.to/#/#heretic:matrix.org) [![Follow us on Hugging Face](https://huggingface.co/datasets/huggingface/badges/resolve/main/follow-us-on-hf-md-dark.svg)](https://huggingface.co/heretic-org) [![Codeberg mirror](https://img.shields.io/badge/Codeberg%20mirror-black?logo=codeberg&style=for-the-badge)](https://codeberg.org/p-e-w/heretic)
