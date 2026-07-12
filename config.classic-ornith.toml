@@ -1,0 +1,97 @@
+# Classic Heretic abliteration for Ornith-1.0-35B (Qwen3.5 MoE 35B-A3B)
+# ---------------------------------------------------------------------------
+# Contrasts with config.toml (ARA-LoRA): this path matches successful public
+# releases such as llmfan46/Ornith-1.0-35B-uncensored-heretic
+#   (Heretic + MPOA-style direction ablation, KL ~0.002, refusals ~9/100).
+#
+# Method:
+#   use_ara = false          # classic refusal-direction orthogonalization
+#   row_normalization = full # magnitude-preserving (MPOA-style) LoRA write
+#   Rank-1/3 LoRA adapters (not ARA LBFGS); works with bnb 4-bit on ROCm.
+#
+# Search priors (implemented in main.py) cover published wins:
+#   direction_index ≈ 20.6, max_weight up to ~2.0, mid/late-layer peaks.
+#
+# Run:
+#   ./run-ornith-classic.sh
+#   # or: ./run-ornith-classic.sh --n-trials 80
+# ---------------------------------------------------------------------------
+
+model = "/run/media/s117/OS/Models/Ornith-1.0-35B"
+dtypes = ["float16"]
+quantization = "bnb_4bit"
+device_map = "auto"
+trust_remote_code = true
+
+# --- Classic path (NOT ARA-LoRA) ---
+use_ara = false
+use_ara_lora = false
+orthogonalize_direction = false
+row_normalization = "full"
+full_normalization_lora_rank = 3
+
+# Hybrid MoE: linear_attn.out_proj is mapped to attn.o_proj in code;
+# target both attention out-projections and MLP down_proj (incl. experts).
+target_components = ["attn.o_proj", "mlp.down_proj"]
+
+skip_common_response_prefix = true
+
+batch_size = 128
+max_batch_size = 128
+max_response_length = 100
+
+# Prefer low-KL solutions; below target, Optuna optimizes refusals harder.
+kl_divergence_scale = 1.0
+kl_divergence_target = 0.01
+
+n_trials = 120
+n_startup_trials = 40
+
+# Separate journal from the ARA-LoRA study (same model path otherwise collides).
+study_checkpoint_dir = "checkpoints-classic"
+
+# Staged evaluation (keep; JSON is soft-fail only after evaluator change)
+refusal_prescreen_enabled = true
+refusal_prescreen_size = 30
+refusal_prescreen_pass_max = 8
+refusal_prescreen_prune_min = 19
+refusal_prescreen_seed = 117
+
+# Warmup pruning: use relaxed threshold (24/30) until 15 completed trials
+optuna_prune_warmup_enabled = true
+optuna_prune_warmup_completed_trials = 15
+refusal_prescreen_prune_min_warmup = 24
+optuna_prune_warmup_max_total_trials = 40
+
+validation_kl_enabled = true
+generation_health_enabled = true
+full_refusal_candidate_max = 30
+
+[validation_evaluation_prompts]
+dataset = "/home/s117/heretic-ara-lora/heretic-data/harmless_alpaca"
+split = "test[100:150]"
+column = "text"
+
+[good_prompts]
+dataset = "/home/s117/heretic-ara-lora/heretic-data/harmless_alpaca"
+split = "train[:400]"
+column = "text"
+residual_plot_label = '"Harmless" prompts'
+residual_plot_color = "royalblue"
+
+[bad_prompts]
+dataset = "/home/s117/heretic-ara-lora/heretic-data/harmful_behaviors"
+split = "train[:400]"
+column = "text"
+residual_plot_label = '"Harmful" prompts'
+residual_plot_color = "darkorange"
+
+[good_evaluation_prompts]
+dataset = "/home/s117/heretic-ara-lora/heretic-data/harmless_alpaca"
+split = "test[:100]"
+column = "text"
+
+[bad_evaluation_prompts]
+dataset = "/home/s117/heretic-ara-lora/heretic-data/harmful_behaviors"
+split = "test[:100]"
+column = "text"
