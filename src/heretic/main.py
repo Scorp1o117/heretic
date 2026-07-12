@@ -670,6 +670,12 @@ def run():
         print("* Evaluating...")
         score, kl_divergence, refusals = evaluator.get_score()
 
+        # If KL divergence is non-finite (NaN/Inf), mark the trial as invalid
+        # so Optuna treats it as worse than any valid candidate.
+        if not math.isfinite(kl_divergence):
+            print("[yellow]* Marking trial as invalid (non-finite KL divergence)[/]")
+            score = (float("inf"), float("inf"))
+
         elapsed_time = time.perf_counter() - start_time
         remaining_time = (elapsed_time / (trial_index - start_index)) * (
             settings.n_trials - trial_index
