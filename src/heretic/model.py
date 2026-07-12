@@ -808,6 +808,12 @@ class Model:
         # This cast is valid because we passed output_logits=True above.
         logits = cast(tuple[FloatTensor], outputs.logits)[0]
 
+        # CRITICAL: Cast to float32 before log_softmax.
+        # Float16/BFloat16 logits have limited range (max ~65504 / ~3.4e38);
+        # large logits can cause exp() overflow producing -inf/NaN in log_softmax.
+        # Float32 has ~3.4e38 range which is safe for log_softmax.
+        logits = logits.to(torch.float32)
+
         # The returned tensor has shape (prompt, token).
         logprobs = F.log_softmax(logits, dim=-1)
 
