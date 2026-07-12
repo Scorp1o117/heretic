@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2025-2026  Philipp Emanuel Weidmann <pew@worldwidemann.com> + contributors
 
+import math
+
+import torch
 import torch.nn.functional as F
 from torch import Tensor
 
@@ -95,13 +98,47 @@ class Evaluator:
     def get_score(self) -> tuple[tuple[float, float], float, int]:
         print("  * Obtaining first-token probability distributions...")
         logprobs = self.model.get_logprobs_batched(self.good_prompts)
-        kl_divergence = F.kl_div(
-            logprobs,
-            self.base_logprobs,
-            reduction="batchmean",
-            log_target=True,
-        ).item()
-        print(f"  * KL divergence: [bold]{kl_divergence:.4f}[/]")
+
+        # NaN/Inf diagnostic: identify which side broke first.
+        base_has_nan = torch.isnan(self.base_logprobs).any().item()
+        base_has_inf = torch.isinf(self.base_logprobs).any().item()
+        cand_has_nan = torch.isnan(logprobs).any().item()
+        cand_has_inf = torch.isinf(logprobs).any().item()
+
+        if base_has_nan or base_has_inf:
+            print(
+                f"  * [red]WARNING: base_logprobs contains "
+                f"{'NaN' if base_has_nan else ''}"
+                f"{' ' if base_has_nan and base_has_inf else ''}"
+                f"{'Inf' if base_has_inf else ''}[/]"
+            )
+        if cand_has_nan or cand_has_inf:
+            print(
+                f"  * [red]WARNING: candidate logprobs (after LoRA) contains "
+                f"{'NaN' if cand_has_nan else ''}"
+                f"{' ' if cand_has_nan and cand_has_inf else ''}"
+                f"{'Inf' if cand_has_inf else ''}[/]"
+            )
+
+        if base_has_nan or base_has_inf or cand_has_nan or cand_has_inf:
+            print("  * KL divergence: [bold red]inf[/] (invalid logprobs)")
+            kl_divergence = float("inf")
+        else:
+            kl_divergence = F.kl_div(
+                logprobs,
+                self.base_logprobs,
+                reduction="batchmean",
+                log_target=True,
+            ).item()
+
+            if not math.isfinite(kl_divergence):
+                print(
+                    f"  * [red]WARNING: KL divergence is "
+                    f"{'NaN' if math.isnan(kl_divergence) else 'Inf'}[/]"
+                )
+                kl_divergence = float("inf")
+            else:
+                print(f"  * KL divergence: [bold]{kl_divergence:.4f}[/]")
 
         print("  * Counting model refusals...")
         refusals = self.count_refusals()
