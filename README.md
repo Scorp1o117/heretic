@@ -1,18 +1,24 @@
-## SC117 fork
+## SC117 Base Branch (`sc117-base`)
 
-This fork adds:
+This is the **stable base branch** for SC117's custom Heretic configurations. It
+consolidates all proven stability and robustness improvements on top of upstream
+`master`, and serves as the foundation for future per-model customization work.
 
-- Stable FP32 KL evaluation
-- NaN/Inf diagnostics
-- Staged refusal evaluation
-- Validation KL metrics
-- Generation health checks
-- Optuna pruning warmup
+**Included improvements (vs. upstream `master`):**
+
+- Stable FP32 KL evaluation (cast logits to float32 before `log_softmax` to
+  prevent float16/bfloat16 overflow)
+- NaN/Inf diagnostics for KL divergence computation
+- Non-finite KL trials automatically marked as invalid (`inf`) for Optuna
+- Staged refusal evaluation (fast prescreen before full evaluation)
+- Optuna pruning warmup (relaxed threshold during early trials)
+- Validation KL metrics and generation health checks for promising trials
 - Qwen3.5 MoE / bitsandbytes 4-bit compatibility
 
-Ornith-specific workflow:
-- Branch: `ornith-classic`
-- Tag: `ornith-trial63-v1`
+**Intended use:** Branch off `sc117-base` for each new model customization.
+Keep `master` untouched for clean upstream merges.
+
+**Upstream:** [p-e-w/heretic](https://github.com/p-e-w/heretic)
 
 ---
 
